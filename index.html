@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le Saint Coran - Digital</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #1a1a1a; color: #e0e0e0; line-height: 1.6; }
+        .container { max-width: 800px; margin: auto; }
+        .controls { position: sticky; top: 0; background: #1a1a1a; padding: 20px 0; z-index: 100; border-bottom: 2px solid #27ae60; display: flex; gap: 10px; }
+        input { padding: 12px; border-radius: 8px; border: none; background: #2d2d2d; color: white; flex: 1; font-size: 16px; }
+        button { padding: 12px 25px; background: #27ae60; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; }
+        h1 { text-align: center; color: #27ae60; margin-bottom: 5px; }
+        #status { text-align: center; margin-bottom: 20px; }
+        .surah-title-ar { color: #27ae60; font-size: 28px; margin: 10px 0 0 0; }
+        .surah-title-fr { color: #bdc3c7; font-size: 18px; margin: 0 0 20px 0; font-style: italic; }
+        .verset { background: #2d2d2d; padding: 25px; margin: 20px 0; border-radius: 12px; border-right: 5px solid #27ae60; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .arabe { font-size: 30px; text-align: right; color: #ffffff; direction: rtl; margin-bottom: 15px; line-height: 1.8; }
+        .francais { color: #bdc3c7; font-size: 17px; text-align: left; }
+        .numero { color: #27ae60; font-weight: bold; margin-bottom: 10px; display: block; }
+        .basmala-box { text-align: center; padding: 20px; margin-bottom: 20px; border-bottom: 1px solid #333; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Le Saint Coran</h1>
+    <div class="controls">
+        <input type="number" id="surahNumber" placeholder="Numéro (1-114)" min="1" max="114">
+        <button onclick="loadSurah()">Afficher</button>
+    </div>
+    <div id="status"></div>
+    <div id="quran-display"></div>
+</div>
+
+<script>
+    async function loadSurah() {
+        const num = document.getElementById('surahNumber').value;
+        const display = document.getElementById('quran-display');
+        const status = document.getElementById('status');
+
+        if (!num || num < 1 || num > 114) {
+            alert("Entrez un chiffre entre 1 et 114");
+            return;
+        }
+
+        display.innerHTML = "";
+        status.innerHTML = "<p style='color: #27ae60;'>Chargement...</p>";
+
+        try {
+            const [resAr, resFr] = await Promise.all([
+                fetch(`https://api.alquran.cloud/v1/surah/${num}`),
+                fetch(`https://api.alquran.cloud/v1/surah/${num}/fr.hamidullah`)
+            ]);
+
+            const dataAr = await resAr.json();
+            const dataFr = await resFr.json();
+
+            const sNameAr = dataAr.data.name;
+            const sNameFr = dataAr.data.englishName + " (" + dataAr.data.englishNameTranslation + ")";
+
+            status.innerHTML = `
+                <h2 class="surah-title-ar">${sNameAr}</h2>
+                <p class="surah-title-fr">${sNameFr}</p>
+            `;
+
+            dataAr.data.ayahs.forEach((ayah, index) => {
+                let textAr = ayah.text;
+                let textFr = dataFr.data.ayahs[index].text;
+
+                // Séparation Basmala (sauf Fatiha/Tawbah)
+                if (ayah.numberInSurah === 1 && num != 1 && num != 9) {
+                    const basmala = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ";
+                    if (textAr.startsWith(basmala)) {
+                        display.innerHTML += `<div class="basmala-box"><p class="arabe">${basmala}</p></div>`;
+                        textAr = textAr.replace(basmala, "").trim();
+                    }
+                }
+
+                const div = document.createElement('div');
+                div.className = 'verset';
+                div.innerHTML = `
+                    <span class="numero">Verset ${ayah.numberInSurah}</span>
+                    <p class="arabe">${textAr}</p>
+                    <p class="francais">${textFr}</p>
+                `;
+                display.appendChild(div);
+            });
+        } catch (e) {
+            status.innerHTML = "<p style='color:red;'>Erreur réseau.</p>";
+            console.error(e);
+        }
+    }
+</script>
+</body>
+</html>
